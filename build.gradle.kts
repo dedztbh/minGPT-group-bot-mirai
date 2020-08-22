@@ -28,7 +28,6 @@ tasks {
         manifest {
             attributes(mapOf("Main-Class" to "com.dedztbh.mingpt_group_bot_mirai.MainKt"))
         }
-        minimize()
     }
 }
 

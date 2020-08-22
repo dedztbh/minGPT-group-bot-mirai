@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.alsoLogin
+import net.mamoe.mirai.closeAndJoin
 import net.mamoe.mirai.event.subscribeAlways
 import net.mamoe.mirai.join
 import net.mamoe.mirai.message.FriendMessageEvent
@@ -30,6 +31,7 @@ import kotlin.properties.Delegates
 const val CONTEXT_SIZE = 3
 const val SEND_THRESHOLD = 0.5
 
+// the bot currently use a global state for context so can only be used for one group
 var contextQueue = ArrayDeque<String>()
 var mutex = Mutex()
 
@@ -65,7 +67,7 @@ suspend fun main(args: Array<String>) {
     Runtime.getRuntime().addShutdownHook(Thread {
         httpClient.close()
         runBlocking {
-            bot.close()
+            bot.closeAndJoin()
         }
     })
 
@@ -99,30 +101,52 @@ data class PredictResponse(
  */
 suspend fun eventProcessor(event: MessageEvent, callback: suspend (String) -> Unit) = coroutineScope {
     mutex.withLock {
-        event.message.filter { it.isPlain() }.forEach {
-            contextQueue.add(it.content)
-        }
-        if (contextQueue.size >= CONTEXT_SIZE) {
-            val sendList = mutableListOf<String>()
-            sendList.add(contextQueue.removeFirst())
-            for (i in 0 until (CONTEXT_SIZE - 1)) {
-                sendList.add(contextQueue[i])
-            }
-            println("sendList: $sendList")
-            launch {
-                val response = httpClient.post<PredictResponse> {
-                    url("http://127.0.0.1:$predictServPort/")
-                    contentType(ContentType.Application.Json)
-                    body = PredictRequest(
-                        msgs = sendList
-                    )
+        event.message.firstOrNull { it.isPlain() }?.run {
+            // debug command
+            if (content.startsWith("bot run ")) {
+                launch {
+                    val debugList = content.removePrefix("bot predict ").split("/")
+                    val response = httpClient.post<PredictResponse> {
+                        url("http://127.0.0.1:$predictServPort/")
+                        contentType(ContentType.Application.Json)
+                        body = PredictRequest(
+                            msgs = debugList
+                        )
+                    }
+                    response.predict.split("\n\n")[debugList.size].let {
+                        println("re: $it (prob=${response.probs[0]})")
+                        callback("re: $it")
+                    }
                 }
-                if (response.probs[0] >= SEND_THRESHOLD) {
-                    response.predict.split("\n\n")[CONTEXT_SIZE].let {
-                        println("response: $it (prob=${response.probs[0]})")
-                        // do not say sentence with <unk>
-                        if (!it.contains("<unk>")) {
-                            callback(it)
+                // do not proceed
+                return@coroutineScope
+            }
+            contextQueue.add(content)
+
+            // if we have enough messages, start predicting
+            if (contextQueue.size >= CONTEXT_SIZE) {
+                val sendList = mutableListOf<String>()
+                sendList.add(contextQueue.removeFirst())
+                for (i in 0 until (CONTEXT_SIZE - 1)) {
+                    sendList.add(contextQueue[i])
+                }
+                launch {
+                    println("sendList: $sendList")
+                    val response = httpClient.post<PredictResponse> {
+                        url("http://127.0.0.1:$predictServPort/")
+                        contentType(ContentType.Application.Json)
+                        body = PredictRequest(
+                            msgs = sendList
+                        )
+                    }
+                    if (response.probs[0] >= SEND_THRESHOLD) {
+                        // over threshold
+                        response.predict.split("\n\n")[CONTEXT_SIZE].let {
+                            println("re: $it (prob=${response.probs[0]})")
+                            // do not say sentence with <unk>
+                            if (!it.contains("<unk>")) {
+                                callback(it)
+                            }
                         }
                     }
                 }
