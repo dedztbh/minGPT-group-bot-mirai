@@ -129,6 +129,7 @@ fabric.properties
 
 .idea/
 device.json
-.gradle/
 gradlew
 gradlew.bat
+.DS_Store
+gradle/
