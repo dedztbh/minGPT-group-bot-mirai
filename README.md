@@ -11,4 +11,9 @@ q q 群 暴 论 b o t (mirai端)
 
 - server_port：模型服务器端口
 
+debug指令:
+- bot run aaa/bbb/ccc 模拟群内发言，并无视概率和是否有<unk>回复
+
+注意：目前bot只能用于一个用户/群
+
 完整使用说明: https://github.com/DEDZTBH/minGPT-group-bot-server
