@@ -1,9 +1,13 @@
 # minGPT-group-bot-mirai
-q q 群 暴 论 b o t (mirai端)
+q q 群 暴 论 b o t (mirai端) 
+
+![太智能了](https://raw.githubusercontent.com/DEDZTBH/minGPT-group-bot-server/master/demo.jpg)
 
 本项目基于mirai (https://github.com/mamoe/mirai)
 
-使用: java -jar xxx.jar <qqid> <password> <server_port>
+在此阅读完整使用说明: https://github.com/DEDZTBH/minGPT-group-bot-server
+
+使用: java -jar xxx.jar \<qqid> \<password> \<server_port>
 
 - qqid: QQ号
 
@@ -16,4 +20,3 @@ debug指令:
 
 注意：目前bot只能用于一个用户/群
 
-完整使用说明: https://github.com/DEDZTBH/minGPT-group-bot-server
